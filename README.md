@@ -7,14 +7,14 @@
 ## Usage
 
 ```go
-url := urlx.Parse("example.com")
+url := urlx.NormalizeString("example.com")
 
 fmt.Println(url)
 // Prints http://example.com
 ```
 
 ```go
-url := urlx.Parse("localhost:8080/ping")
+url := urlx.NormalizeString("localhost:8080/ping")
 
 fmt.Println(url)
 // Prints http://localhost:8080/ping
