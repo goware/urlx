@@ -15,7 +15,7 @@ var (
 	ErrInvalidURLScheme = errors.New("invalid URL scheme")
 )
 
-func NormalizeURLString(s string) (string, error) {
+func NormalizeString(s string) (string, error) {
 	// Hack for "localhost", as net/url can't handle it.
 	if len(s) == 9 && s == "localhost" ||
 		len(s) > 9 && (s[0:10] == "localhost:" || s[0:10] == "localhost/") {

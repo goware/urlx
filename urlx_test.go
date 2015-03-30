@@ -2,6 +2,8 @@ package urlx_test
 
 import (
 	"testing"
+
+	"github.com/goware/urlx"
 )
 
 var tests = []struct {
@@ -41,9 +43,9 @@ var tests = []struct {
 	// ..more robust test cases covered by Purell
 }
 
-func TestNormalizeURLString(t *testing.T) {
+func TestNormalizeString(t *testing.T) {
 	for i, tt := range tests {
-		if got, err := utils.NormalizeURLString(tt.in); got != tt.out || (err != nil && !tt.err) || (err == nil && tt.err) {
+		if got, err := urlx.NormalizeString(tt.in); got != tt.out || (err != nil && !tt.err) || (err == nil && tt.err) {
 			t.Errorf(`%v. NormalizeUrl("%v") = "%v", err=%v, want "%v", err=%v`, i, tt.in, got, err, tt.out, tt.err)
 		}
 	}
