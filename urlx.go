@@ -4,7 +4,6 @@ package urlx
 import (
 	"errors"
 	"net"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -80,23 +79,4 @@ func Validate(rawURL string, dnsCheck bool) error {
 	}
 
 	return nil
-}
-
-func FindFinal(originalURL string) (string, error) {
-	resp, err := http.Get(originalURL)
-	if err != nil {
-		return "", err
-	}
-
-	return resp.Request.URL.String(), nil
-}
-
-func Extract(content string, maxURLs int) []string {
-	reg := regexp.MustCompile(`(?:(?:https?:\/\/)|(?:www\.))[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,4}\b(?:[-a-zA-Z0-9@:%_\+.~#?&/=]*)`)
-	return reg.FindAllString(content, maxURLs)
-}
-
-func Linkify(content string) string {
-	reg := regexp.MustCompile(`(?:(?:https?:\/\/)|(?:www\.))[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,4}\b(?:[-a-zA-Z0-9@:%_\+.~#?&/=]*)`)
-	return reg.ReplaceAllString(content, `<a href="$0" target="_blank">$0</a>`)
 }
