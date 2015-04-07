@@ -1,82 +1,145 @@
-// Package urlx parses and normalizes URLs. It favors absolute paths.
+// Package urlx parses and normalizes URLs. It can also resolve hostname to an IP address.
 package urlx
 
 import (
 	"errors"
 	"net"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/purell"
 )
 
 var (
-	ErrInvalidURL       = errors.New("invalid URL")
+	ErrEmptyURLHost     = errors.New("empty hostname")
 	ErrInvalidURLHost   = errors.New("invalid hostname")
-	ErrInvalidURLScheme = errors.New("invalid URL scheme")
+	ErrUnresolvableHost = errors.New("unable to resolve hostname")
 )
 
-func NormalizeString(s string) (string, error) {
-	// Hack for "localhost", as net/url can't handle it.
-	if len(s) == 9 && s == "localhost" ||
-		len(s) > 9 && (s[0:10] == "localhost:" || s[0:10] == "localhost/") {
-		s = "http://" + s
-	}
-
-	u, err := url.Parse(s)
-	if err != nil {
-		return s, err
-	}
-	if u.Host == "" {
-		// url.Parse("example.com") returns Host="", Path="example.com", eh..
-		i := strings.IndexByte(u.Path, '/')
-		if i == -1 {
-			i = len(u.Path)
-		}
-		if i < 3 {
-			// Path too short to contain the actual Host
-			return s, ErrInvalidURLHost
-		}
-		// Move the actual host from Path to Host field
-		u.Host = u.Path[:i]
-		u.Path = u.Path[i:]
-	}
-	switch u.Scheme {
-	case "http", "https", "HTTP", "HTTPS":
-		// nop
-	case "":
-		// AnyScheme => http
-		u.Scheme = "http"
-	default:
-		return s, ErrInvalidURLScheme
-	}
-	return purell.NormalizeURL(u, purell.FlagsUsuallySafeGreedy|purell.FlagRemoveDuplicateSlashes|purell.FlagLowercaseScheme|purell.FlagLowercaseHost), nil
+type URL struct {
+	*url.URL
+	Host string
+	Port string
 }
 
-func Validate(rawURL string, dnsCheck bool) error {
-	parsed, err := url.Parse(rawURL)
+// Parse parses raw URL string into the URL struct. It uses net/url.Parse()
+// internally, but it slightly changes it's behavior:
+// 1. It forces the default scheme and port.
+// 2. It favors absolute paths over relative ones, thus "example.com" is
+//    parsed into url.Host instead of into url.Path.
+// 3. It splits Host:Port into separate fields by default.
+func Parse(raw string) (*URL, error) {
+	var err error
+	url := &URL{}
+
+	// Force default http scheme, so net/url.Parse() doesn't
+	// put both host and path into the (relative) path.
+	if strings.Index(raw, "//") == 0 {
+		// Leading double slashes (any scheme). Force http.
+		raw = "http:" + raw
+	}
+	if strings.Index(raw, "://") == -1 {
+		// Missing scheme. Force http.
+		raw = "http://" + raw
+	}
+
+	// Use net/url.Parse() now.
+	url.URL, err = url.Parse(raw)
 	if err != nil {
-		return ErrInvalidURL
+		return nil, err
 	}
-	if parsed.Scheme == "" {
-		return ErrInvalidURL
+	if url.URL.Host == "" {
+		return nil, ErrEmptyURLHost
+	}
+	url.Host = strings.ToLower(url.URL.Host)
+
+	// Split Host:Port, if possible. Ignore anything inside [IPv6] brackets.
+	// Don't use net.SplitHostPort, as it removes brackets from [IPv6] Host.
+	if i := strings.LastIndex(url.Host, ":"); i != -1 && strings.Index(url.Host[i:], "]") == -1 {
+		if len(url.Host) > i {
+			url.Port = url.Host[i+1:]
+		}
+		url.Host = url.Host[:i]
 	}
 
-	hostPort := strings.Split(parsed.Host, ":")
-	hostname := hostPort[0]
-
-	reg := regexp.MustCompile(`[\w\.\-]{2,64}\.[a-zA-Z0-9\-]{2,64}$`)
-
-	if !reg.Match([]byte(hostname)) {
-		return ErrInvalidURLHost
-	}
-
-	if dnsCheck {
-		if _, err := net.ResolveIPAddr("ip", hostname); err != nil {
-			return err
+	// Force default port matching the http or https scheme.
+	// TODO: Add hash table to support more schemes.
+	if url.Port == "" {
+		switch url.Scheme {
+		case "http":
+			url.Port = "80"
+		case "https":
+			url.Port = "443"
 		}
 	}
 
-	return nil
+	return url, nil
+}
+
+// String returns URL struct as a string in human readable form:
+// scheme://userinfo@host/path?query#fragment
+// ^^^^^^^^^         ^^^^ (required parts)
+func (url *URL) String() string {
+	result := url.Scheme + "://"
+
+	if url.User != nil {
+		result += url.User.String() + "@"
+	}
+
+	// Show port only if it's not matching the scheme's default
+	// port, eg. http://example.com:80 => http://example.com.
+	// TODO: Add hash table to support more schemes.
+	switch url.Scheme + ":" + url.Port {
+	case "http:80", "https:443":
+		result += url.Host
+	default:
+		result += url.Host + ":" + url.Port
+	}
+
+	if url.Path != "" {
+		result += url.Path
+	}
+
+	if url.RawQuery != "" {
+		result += "?" + url.RawQuery
+	}
+
+	if url.Fragment != "" {
+		result += "#" + url.Fragment
+	}
+
+	return result
+}
+
+// Normalize returns normalized URL string.
+// Behavior:
+// 1. Remove unnecessary host dots.
+// 2. Remove default port (http://localhost:80 becomes http://localhost).
+// 3. Remove duplicate slashes.
+// 4. Remove unnecessary dots from path.
+// 5. Sort query.
+// 6. Decodes host IP into decimal numbers.
+// 7. Handles escape values.
+func (url *URL) Normalize() (string, error) {
+	var flags purell.NormalizationFlags
+	flags |= purell.FlagRemoveUnnecessaryHostDots | purell.FlagRemoveDefaultPort
+	flags |= purell.FlagDecodeDWORDHost | purell.FlagDecodeOctalHost | purell.FlagDecodeHexHost
+	flags |= purell.FlagRemoveDuplicateSlashes | purell.FlagRemoveDotSegments
+	flags |= purell.FlagUppercaseEscapes | purell.FlagDecodeUnnecessaryEscapes | purell.FlagEncodeNecessaryEscapes
+	flags |= purell.FlagSortQuery
+
+	normalized, err := purell.NormalizeURLString(url.String(), flags)
+	if err != nil {
+		return "", err
+	}
+	return normalized, nil
+}
+
+// Resolve resolves the URL host to its IP address.
+func (url *URL) Resolve() (*net.IPAddr, error) {
+	addr, err := net.ResolveIPAddr("ip", url.Host)
+	if err != nil {
+		return nil, ErrUnresolvableHost
+	}
+	return addr, nil
 }
