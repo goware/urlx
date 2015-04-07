@@ -1,52 +1,159 @@
 package urlx_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/goware/urlx"
 )
 
-var tests = []struct {
-	in  string
-	out string
-	err bool
-}{
-	// Error out on missing host:
-	{in: "", out: "", err: true},
-	{in: "/", out: "/", err: true},
-	{in: "/foo.html", out: "/foo.html", err: true},
-	// Default scheme http://:
-	{in: "localhost", out: "http://localhost"},
-	{in: "localhost:8080", out: "http://localhost:8080"},
-	{in: "example.com", out: "http://example.com"},
-	{in: "1.example.com", out: "http://1.example.com"},
-	{in: "subsub.sub.example.com", out: "http://subsub.sub.example.com"},
-	// AnyScheme => http://:
-	{in: "//example.com", out: "http://example.com"},
-	// Supported schemes:
-	{in: "http://example.com", out: "http://example.com"},
-	{in: "https://example.com", out: "https://example.com"},
-	{in: "HTTP://example.com", out: "http://example.com"},
-	{in: "HTTPS://example.com", out: "https://example.com"},
-	// Unsupported schemes:
-	{in: "file://example.com", out: "file://example.com", err: true},
-	{in: "mailto://user@example.com", out: "mailto://user@example.com", err: true},
-	{in: "ftp://example.com", out: "ftp://example.com", err: true},
-	{in: "git://example.com", out: "git://example.com", err: true},
-	{in: "git+ssh://example.com", out: "git+ssh://example.com", err: true},
-	{in: "ws://example.com", out: "ws://example.com", err: true},
-	{in: "wss://example.com", out: "wss://example.com", err: true},
-	{in: "magnet://example.com", out: "magnet://example.com", err: true},
-	{in: "jabber://example.com", out: "jabber://example.com", err: true},
-	// Normalization example:
-	{in: "hTTp://subSUB.sub.EXAMPLE.COM///x//////y///foo.mp3", out: "http://subsub.sub.example.com/x/y/foo.mp3"},
-	// ..more robust test cases covered by Purell
-}
+func TestParse(t *testing.T) {
+	tests := []struct {
+		in  string
+		out string
+		err bool
+	}{
+		// Error out on missing host:
+		{in: "", err: true},
+		{in: "/", err: true},
+		{in: "//", err: true},
 
-func TestNormalizeString(t *testing.T) {
-	for i, tt := range tests {
-		if got, err := urlx.NormalizeString(tt.in); got != tt.out || (err != nil && !tt.err) || (err == nil && tt.err) {
-			t.Errorf(`%v. NormalizeUrl("%v") = "%v", err=%v, want "%v", err=%v`, i, tt.in, got, err, tt.out, tt.err)
+		// Test schemes:
+		{in: "http://example.com", out: "http://example.com"},
+		{in: "HTTP://example.com", out: "http://example.com"},
+		{in: "https://example.com", out: "https://example.com"},
+		{in: "HTTPS://example.com", out: "https://example.com"},
+		{in: "ssh://example.com:22", out: "ssh://example.com:22"},
+		{in: "jabber://example.com:5222", out: "jabber://example.com:5222"},
+
+		// Leading double slashes (any scheme) defaults to http:
+		{in: "//example.com", out: "http://example.com"},
+
+		// Empty scheme defaults to http:
+		{in: "http://localhost", out: "http://localhost"},
+		{in: "localhost", out: "http://localhost"},
+		{in: "LOCALHOST", out: "http://localhost"},
+		{in: "user.local", out: "http://user.local"},
+		{in: "127.0.0.1", out: "http://127.0.0.1"},
+		{in: "[2001:db8:a0b:12f0::1]", out: "http://[2001:db8:a0b:12f0::1]"},
+		{in: "[2001:db8:a0b:12f0::80]", out: "http://[2001:db8:a0b:12f0::80]"},
+
+		// Keep the port even on matching scheme:
+		{in: "http://localhost:80", out: "http://localhost:80"},
+		{in: "http://localhost:8080", out: "http://localhost:8080"},
+		{in: "[2001:db8:a0b:12f0::80]:80", out: "http://[2001:db8:a0b:12f0::80]:80"},
+		{in: "[2001:db8:a0b:12f0::1]:8080", out: "http://[2001:db8:a0b:12f0::1]:8080"},
+
+		// Test domains, subdomains etc.:
+		{in: "example.com", out: "http://example.com"},
+		{in: "1.example.com", out: "http://1.example.com"},
+		{in: "subsub.sub.example.com", out: "http://subsub.sub.example.com"},
+
+		// Test userinfo:
+		{in: "user@example.com", out: "http://user@example.com"},
+		{in: "user:passwd@example.com", out: "http://user:passwd@example.com"},
+		{in: "https://user:passwd@subsub.sub.example.com", out: "https://user:passwd@subsub.sub.example.com"},
+
+		// Lowercase scheme and host by default. Let net/url normalize URL by default:
+		{in: "hTTp://subSUB.sub.EXAMPLE.COM/x//////y///foo.mp3?c=z&a=x&b=y#t=20", out: "http://subsub.sub.example.com/x//////y///foo.mp3?c=z&a=x&b=y#t=20"},
+	}
+
+	for _, tt := range tests {
+		url, err := urlx.Parse(tt.in)
+		if err != nil {
+			if !tt.err {
+				t.Errorf(`"%s": unexpected error \"%v\"`, tt.in, err)
+			}
+			continue
+		}
+		if tt.err && err == nil {
+			t.Errorf(`"%s": expected error`, tt.in)
+			continue
+		}
+		if url.String() != tt.out {
+			t.Errorf(`"%s": got "%s", want "%v"`, tt.in, url, tt.out)
 		}
 	}
+}
+
+func TestURLNormalize(t *testing.T) {
+	tests := []struct {
+		in  string
+		out string
+		err bool
+	}{
+		// Remove unnecessary host dots:
+		{in: "http://.example.com/index.html", out: "http://example.com/index.html"},
+		// Purell bugs? They claim this works..
+		//{in: "http://..example..com../index.html", out: "http://example.com/index.html"},
+
+		// Remove default port:
+		{in: "http://example.com:80/index.html", out: "http://example.com/index.html"},
+		{in: "localhost:80", out: "http://localhost"},
+		{in: "127.0.0.1:80", out: "http://127.0.0.1"},
+		{in: "[2001:db8:a0b:12f0::1]:80", out: "http://[2001:db8:a0b:12f0::1]"},
+
+		// Remove duplicate slashes.
+		{in: "http://example.com///x//////y///index.html", out: "http://example.com/x/y/index.html"},
+
+		// Remove unnecesary dots from path:
+		{in: "http://example.com/./x/y/z/../index.html", out: "http://example.com/x/y/index.html"},
+
+		// Sort query:
+		{in: "http://example.com/index.html?c=z&a=x&b=y", out: "http://example.com/index.html?a=x&b=y&c=z"},
+
+		// Leave fragment as is:
+		{in: "http://example.com/index.html#t=20", out: "http://example.com/index.html#t=20"},
+
+		// README example:
+		{in: "localhost:80///x///y/z/../././index.html?b=y&a=x#t=20", out: "http://localhost/x/y/index.html?a=x&b=y#t=20"},
+
+		// ..more robust test cases covered by Purell
+	}
+
+	for _, tt := range tests {
+		u, _ := urlx.Parse(tt.in)
+		url, err := urlx.Normalize(u)
+		if err != nil {
+			if !tt.err {
+				t.Errorf(`%v: unexpected error \"%v\"`, tt.in, err)
+			}
+			continue
+		}
+		if tt.err && err == nil {
+			t.Errorf(`%v: expected error`, tt.in)
+			continue
+		}
+		if url != tt.out {
+			t.Errorf(`%v: got "%v", want "%v"`, tt.in, url, tt.out)
+		}
+	}
+}
+
+func TestURLResolve(t *testing.T) {
+	tests := []struct {
+		in  string
+		out string
+		err bool
+	}{
+		{in: "localhost", out: "127.0.0.1"},
+		{in: "google.com"},
+		{in: "some.weird.hostname.example.com", err: true},
+	}
+
+	for _, tt := range tests {
+		u, _ := urlx.Parse(tt.in)
+		ip, err := urlx.Resolve(u)
+		if !tt.err && err != nil {
+			t.Errorf(`%v: unexpected error \"%v\"`, tt.in, err)
+			continue
+		}
+		if tt.err && err == nil {
+			t.Errorf(`%v: expected error`, tt.in)
+		}
+		if tt.out != "" && tt.out != fmt.Sprint(ip) {
+			t.Errorf(`%v: got "%v", want "%v"`, tt.in, ip, tt.out)
+		}
+	}
+
 }
