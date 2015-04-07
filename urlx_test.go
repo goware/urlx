@@ -38,16 +38,11 @@ func TestParse(t *testing.T) {
 		{in: "[2001:db8:a0b:12f0::1]", out: "http://[2001:db8:a0b:12f0::1]"},
 		{in: "[2001:db8:a0b:12f0::80]", out: "http://[2001:db8:a0b:12f0::80]"},
 
-		// Keep the port on non-matching scheme:
-		{in: "http://localhost:80", out: "http://localhost"},
-		{in: "localhost:8080", out: "http://localhost:8080"},
+		// Keep the port even on matching scheme:
+		{in: "http://localhost:80", out: "http://localhost:80"},
+		{in: "http://localhost:8080", out: "http://localhost:8080"},
+		{in: "[2001:db8:a0b:12f0::80]:80", out: "http://[2001:db8:a0b:12f0::80]:80"},
 		{in: "[2001:db8:a0b:12f0::1]:8080", out: "http://[2001:db8:a0b:12f0::1]:8080"},
-		{in: "[2001:db8:a0b:12f0::80]:80", out: "http://[2001:db8:a0b:12f0::80]"},
-
-		// Suppress the port on matching scheme:
-		{in: "localhost:80", out: "http://localhost"},
-		{in: "127.0.0.1:80", out: "http://127.0.0.1"},
-		{in: "[2001:db8:a0b:12f0::1]:80", out: "http://[2001:db8:a0b:12f0::1]"},
 
 		// Test domains, subdomains etc.:
 		{in: "example.com", out: "http://example.com"},
@@ -61,7 +56,6 @@ func TestParse(t *testing.T) {
 
 		// Lowercase scheme and host by default. Let net/url normalize URL by default:
 		{in: "hTTp://subSUB.sub.EXAMPLE.COM/x//////y///foo.mp3?c=z&a=x&b=y#t=20", out: "http://subsub.sub.example.com/x//////y///foo.mp3?c=z&a=x&b=y#t=20"},
-		{in: "example.com///////////////", out: "http://example.com/"},
 	}
 
 	for _, tt := range tests {
@@ -95,6 +89,9 @@ func TestURLNormalize(t *testing.T) {
 
 		// Remove default port:
 		{in: "http://example.com:80/index.html", out: "http://example.com/index.html"},
+		{in: "localhost:80", out: "http://localhost"},
+		{in: "127.0.0.1:80", out: "http://127.0.0.1"},
+		{in: "[2001:db8:a0b:12f0::1]:80", out: "http://[2001:db8:a0b:12f0::1]"},
 
 		// Remove duplicate slashes.
 		{in: "http://example.com///x//////y///index.html", out: "http://example.com/x/y/index.html"},
@@ -116,7 +113,7 @@ func TestURLNormalize(t *testing.T) {
 
 	for _, tt := range tests {
 		u, _ := urlx.Parse(tt.in)
-		url, err := u.Normalize()
+		url, err := urlx.Normalize(u)
 		if err != nil {
 			if !tt.err {
 				t.Errorf(`%v: unexpected error \"%v\"`, tt.in, err)
@@ -146,7 +143,7 @@ func TestURLResolve(t *testing.T) {
 
 	for _, tt := range tests {
 		u, _ := urlx.Parse(tt.in)
-		ip, err := u.Resolve()
+		ip, err := urlx.Resolve(u)
 		if !tt.err && err != nil {
 			t.Errorf(`%v: unexpected error \"%v\"`, tt.in, err)
 			continue
