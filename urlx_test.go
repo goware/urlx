@@ -1,6 +1,7 @@
 package urlx_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/goware/urlx"
@@ -107,6 +108,9 @@ func TestURLNormalize(t *testing.T) {
 		// Leave fragment as is:
 		{in: "http://example.com/index.html#t=20", out: "http://example.com/index.html#t=20"},
 
+		// README example:
+		{in: "localhost:80///x///y/z/../././index.html?b=y&a=x#t=20", out: "http://localhost/x/y/index.html?a=x&b=y#t=20"},
+
 		// ..more robust test cases covered by Purell
 	}
 
@@ -132,16 +136,17 @@ func TestURLNormalize(t *testing.T) {
 func TestURLResolve(t *testing.T) {
 	tests := []struct {
 		in  string
+		out string
 		err bool
 	}{
-		{in: "localhost"},
+		{in: "localhost", out: "127.0.0.1"},
 		{in: "google.com"},
 		{in: "some.weird.hostname.example.com", err: true},
 	}
 
 	for _, tt := range tests {
 		u, _ := urlx.Parse(tt.in)
-		_, err := u.Resolve()
+		ip, err := u.Resolve()
 		if !tt.err && err != nil {
 			t.Errorf(`%v: unexpected error \"%v\"`, tt.in, err)
 			continue
@@ -149,5 +154,9 @@ func TestURLResolve(t *testing.T) {
 		if tt.err && err == nil {
 			t.Errorf(`%v: expected error`, tt.in)
 		}
+		if tt.out != "" && tt.out != fmt.Sprint(ip) {
+			t.Errorf(`%v: got "%v", want "%v"`, tt.in, ip, tt.out)
+		}
 	}
+
 }

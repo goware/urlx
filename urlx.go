@@ -117,9 +117,9 @@ func (url *URL) String() string {
 // 2. Remove default port (http://localhost:80 becomes http://localhost).
 // 3. Remove duplicate slashes.
 // 4. Remove unnecessary dots from path.
-// 5. Sort query.
-// 6. Decodes host IP into decimal numbers.
-// 7. Handles escape values.
+// 5. Sort query parameters.
+// 6. Decode host IP into decimal numbers.
+// 7. Handle escape values.
 func (url *URL) Normalize() (string, error) {
 	var flags purell.NormalizationFlags
 	flags |= purell.FlagRemoveUnnecessaryHostDots | purell.FlagRemoveDefaultPort
