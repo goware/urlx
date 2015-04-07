@@ -4,13 +4,11 @@
 [![GoDoc](https://godoc.org/github.com/goware/urlx?status.png)](https://godoc.org/github.com/goware/urlx)
 [![Travis](https://travis-ci.org/goware/urlx.svg?branch=master)](https://travis-ci.org/goware/urlx)
 
-## Usage
+## urlx.Parse()
 
 ```go
-import "github.com/goware/urlx"
+Parse(raw string) (*URL, error)
 ```
-
-### urlx.Parse()
 
 Parse parses raw URL string into the URL struct. It uses `net/url.Parse()`
 internally, but it slightly changes it's behavior:
@@ -20,18 +18,30 @@ internally, but it slightly changes it's behavior:
    parsed into `url.Host` instead of into `url.Path`.
 3. It splits `Host:Port` into separate fields by default.
 
+The `URL` struct is of the form `scheme://userinfo@host:port/path?query#fragment`.
+
+### Example
+
 ```go
-url, _ := urlx.Parse("example.com")
+import "github.com/goware/urlx"
 
-// url.Scheme == "http"
-// url.Port == "80"
-// url.Host == "example.com"
+function main() {
+    url, _ := urlx.Parse("example.com")
 
-fmt.Print(url)
-// Prints http://example.com:80
+    // url.Scheme == "http"
+    // url.Host == "example.com"
+    // url.Port == "80"
+
+    fmt.Print(url)
+    // Prints http://example.com:80
+}
 ```
 
-### url.Normalize()
+## url.Normalize()
+
+```go
+func (url *URL) Normalize() (string, error)
+```
 
 Normalize returns normalized URL string.
 Behavior:
@@ -44,6 +54,8 @@ Behavior:
 6. Decode host IP into decimal numbers.
 7. Handle escape values.
 
+### Example
+
 ```go
 url, _ := urlx.Parse("localhost:80///x///y/z/../././index.html?b=y&a=x#t=20")
 normalized, _ := url.Normalize()
@@ -52,9 +64,15 @@ fmt.Print(normalized)
 // Prints http://localhost/x/y/index.html?a=x&b=y#t=20
 ```
 
-### url.Resolve()
+## url.Resolve()
+
+```go
+func (url *URL) Resolve() (*net.IPAddr, error)
+```
 
 Resolve resolves the URL host to its IP address.
+
+### Example
 
 ```go
 url, _ := urlx.Parse("localhost")

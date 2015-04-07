@@ -11,11 +11,17 @@ import (
 )
 
 var (
-	ErrEmptyURLHost     = errors.New("empty hostname")
-	ErrInvalidURLHost   = errors.New("invalid hostname")
-	ErrUnresolvableHost = errors.New("unable to resolve hostname")
+	// ErrEmptyURLHost represents URL with empty hostname.
+	ErrEmptyURLHost = errors.New("empty hostname")
+	// ErrInvalidURLHost represents URL with invalid hostname.
+	ErrInvalidURLHost = errors.New("invalid hostname")
+	// ErrUnresolvableURLHost represents URL, whose hostname that
+	// can't be resolved to an IP address.
+	ErrUnresolvableURLHost = errors.New("unable to resolve hostname")
 )
 
+// URL represents parsed URL of the form:
+// scheme://userinfo@host:port/path?query#fragment
 type URL struct {
 	*url.URL
 	Host string
@@ -77,7 +83,7 @@ func Parse(raw string) (*URL, error) {
 }
 
 // String returns URL struct as a string in human readable form:
-// scheme://userinfo@host/path?query#fragment
+// scheme://userinfo@host:port/path?query#fragment
 // ^^^^^^^^^         ^^^^ (required parts)
 func (url *URL) String() string {
 	result := url.Scheme + "://"
@@ -139,7 +145,7 @@ func (url *URL) Normalize() (string, error) {
 func (url *URL) Resolve() (*net.IPAddr, error) {
 	addr, err := net.ResolveIPAddr("ip", url.Host)
 	if err != nil {
-		return nil, ErrUnresolvableHost
+		return nil, ErrUnresolvableURLHost
 	}
 	return addr, nil
 }
