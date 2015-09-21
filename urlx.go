@@ -54,7 +54,7 @@ func Parse(rawURL string) (*url.URL, error) {
 
 var (
 	// RFC 1035.
-	domainRegexp = regexp.MustCompile(`^([a-zA-Z0-9-]{1,63}\.)*[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]$`)
+	domainRegexp = regexp.MustCompile(`^([a-zA-Z0-9-]{1,63}\.)*[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]$`)
 	ipv4Regexp   = regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	ipv6Regexp   = regexp.MustCompile(`^\[[a-fA-F0-9:]+\]$`)
 )

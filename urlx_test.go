@@ -20,7 +20,7 @@ func TestParse(t *testing.T) {
 
 		// Test schemes:
 		{in: "http://example.com", out: "http://example.com"},
-		{in: "HTTP://example.com", out: "http://example.com"},
+		{in: "HTTP://x.example.com", out: "http://x.example.com"},
 		{in: "https://example.com", out: "https://example.com"},
 		{in: "HTTPS://example.com", out: "https://example.com"},
 		{in: "ssh://example.com:22", out: "ssh://example.com:22"},
@@ -41,12 +41,14 @@ func TestParse(t *testing.T) {
 		// Keep the port even on matching scheme:
 		{in: "http://localhost:80", out: "http://localhost:80"},
 		{in: "http://localhost:8080", out: "http://localhost:8080"},
+		{in: "http://x.example.io:8080", out: "http://x.example.io:8080"},
 		{in: "[2001:db8:a0b:12f0::80]:80", out: "http://[2001:db8:a0b:12f0::80]:80"},
 		{in: "[2001:db8:a0b:12f0::1]:8080", out: "http://[2001:db8:a0b:12f0::1]:8080"},
 
 		// Test domains, subdomains etc.:
 		{in: "example.com", out: "http://example.com"},
 		{in: "1.example.com", out: "http://1.example.com"},
+		{in: "1.example.io", out: "http://1.example.io"},
 		{in: "subsub.sub.example.com", out: "http://subsub.sub.example.com"},
 
 		// Test userinfo:
