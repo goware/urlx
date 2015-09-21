@@ -56,6 +56,12 @@ func TestParse(t *testing.T) {
 
 		// Lowercase scheme and host by default. Let net/url normalize URL by default:
 		{in: "hTTp://subSUB.sub.EXAMPLE.COM/x//////y///foo.mp3?c=z&a=x&b=y#t=20", out: "http://subsub.sub.example.com/x//////y///foo.mp3?c=z&a=x&b=y#t=20"},
+
+		// Some obviously wrong data:
+		{in: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==", err: true},
+		{in: "javascript:evilFunction()", err: true},
+		{in: "otherscheme:garbage", err: true},
+		{in: "<funnnytag>", err: true},
 	}
 
 	for _, tt := range tests {
@@ -83,8 +89,7 @@ func TestURLNormalize(t *testing.T) {
 		err bool
 	}{
 		// Remove unnecessary host dots:
-		{in: "http://.example.com/index.html", out: "http://example.com/index.html"},
-		// Purell bugs? They claim this works..
+		// Purell bug? They claim the following works..
 		//{in: "http://..example..com../index.html", out: "http://example.com/index.html"},
 
 		// Remove default port:

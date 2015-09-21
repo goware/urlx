@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -34,20 +35,48 @@ func Parse(rawURL string) (*url.URL, error) {
 	// Use net/url.Parse() now.
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, &url.Error{"parse", rawURL, err}
+		return nil, err
 	}
-	if u.Host == "" {
-		return nil, &url.Error{"parse", rawURL, errors.New("empty host")}
+
+	host, _, err := SplitHostPort(u)
+	if err != nil {
+		return nil, err
 	}
+	if err := checkHost(host); err != nil {
+		return nil, err
+	}
+
 	u.Host = strings.ToLower(u.Host)
+	u.Scheme = strings.ToLower(u.Scheme)
 
 	return u, nil
 }
 
-// SplitHostPort splits a network address of the form "host:port" into
+var (
+	// RFC 1035.
+	domainRegexp = regexp.MustCompile(`^([a-zA-Z0-9-]{1,63}\.)*[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]$`)
+	ipv4Regexp   = regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
+	ipv6Regexp   = regexp.MustCompile(`^\[[a-fA-F0-9:]+\]$`)
+)
+
+func checkHost(host string) error {
+	if host == "" {
+		return &url.Error{"host", host, errors.New("empty host")}
+	}
+	if !domainRegexp.MatchString(host) && !ipv4Regexp.MatchString(host) && !ipv6Regexp.MatchString(host) {
+		return &url.Error{"host", host, errors.New("invalid host")}
+	}
+
+	return nil
+}
+
+// SplitHostPort splits network address of the form "host:port" into
 // host and port. Unlike net.SplitHostPort(), it doesn't remove brackets
 // from [IPv6] host and it accepts net/url.URL struct instead of a string.
 func SplitHostPort(u *url.URL) (host, port string, err error) {
+	if u == nil {
+		return "", "", &url.Error{"host", host, errors.New("empty url")}
+	}
 	host = u.Host
 
 	// Find last colon.
@@ -59,15 +88,10 @@ func SplitHostPort(u *url.URL) (host, port string, err error) {
 		}
 	}
 
-	// Host is required field.
-	if host == "" {
-		return host, port, &url.Error{"splithostport", host, errors.New("empty host")}
-	}
-
 	// Port is optional. But if it's set, is it a number?
 	if port != "" {
 		if _, err := strconv.Atoi(port); err != nil {
-			return host, port, &url.Error{"splithostport", host, err}
+			return "", "", &url.Error{"port", host, err}
 		}
 	}
 
@@ -90,9 +114,16 @@ const normalizeFlags purell.NormalizationFlags = purell.FlagRemoveDefaultPort |
 // 6. Decode host IP into decimal numbers.
 // 7. Handle escape values.
 func Normalize(u *url.URL) (string, error) {
-	if u == nil || u.Host == "" {
-		return "", &url.Error{"normalize", u.String(), errors.New("empty host")}
+	host, _, err := SplitHostPort(u)
+	if err != nil {
+		return "", err
 	}
+	if err := checkHost(host); err != nil {
+		return "", err
+	}
+
+	u.Host = strings.ToLower(u.Host)
+	u.Scheme = strings.ToLower(u.Scheme)
 
 	return purell.NormalizeURL(u, normalizeFlags), nil
 }
@@ -105,9 +136,7 @@ func NormalizeString(rawURL string) (string, error) {
 		return "", err
 	}
 
-	// Don't use purell.NormalizeURLString() directly,
-	// we want to force behavior of our Parse() function.
-	return purell.NormalizeURL(u, normalizeFlags), nil
+	return Normalize(u)
 }
 
 // Resolve resolves the URL host to its IP address.
