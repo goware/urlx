@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/net/idna"
+
 	"github.com/PuerkitoBio/purell"
 )
 
@@ -17,8 +19,7 @@ import (
 // its behavior:
 // 1. It forces the default scheme and port.
 // 2. It favors absolute paths over relative ones, thus "example.com"
-//    is parsed into url.Host instead of into url.Path.
-// 3. It splits Host:Port into separate fields by default.
+//    is parsed into url.Host instead of url.Path.
 // 4. It lowercases the Host (not only the Scheme).
 func Parse(rawURL string) (*url.URL, error) {
 	// Force default http scheme, so net/url.Parse() doesn't
@@ -54,7 +55,7 @@ func Parse(rawURL string) (*url.URL, error) {
 
 var (
 	// RFC 1035.
-	domainRegexp = regexp.MustCompile(`^([a-zA-Z0-9-]{1,63}\.)*[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]$`)
+	domainRegexp = regexp.MustCompile(`^([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]$`)
 	ipv4Regexp   = regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	ipv6Regexp   = regexp.MustCompile(`^\[[a-fA-F0-9:]+\]$`)
 )
@@ -63,11 +64,24 @@ func checkHost(host string) error {
 	if host == "" {
 		return &url.Error{"host", host, errors.New("empty host")}
 	}
-	if !domainRegexp.MatchString(host) && !ipv4Regexp.MatchString(host) && !ipv6Regexp.MatchString(host) {
-		return &url.Error{"host", host, errors.New("invalid host")}
+
+	host = strings.ToLower(host)
+	if domainRegexp.MatchString(host) || host == "localhost" {
+		return nil
 	}
 
-	return nil
+	if punycode, err := idna.ToASCII(host); err != nil {
+		return err
+	} else if domainRegexp.MatchString(punycode) {
+		return nil
+	}
+
+	// IPv4 and IPv6.
+	if ipv4Regexp.MatchString(host) || ipv6Regexp.MatchString(host) {
+		return nil
+	}
+
+	return &url.Error{"host", host, errors.New("invalid host")}
 }
 
 // SplitHostPort splits network address of the form "host:port" into
@@ -113,6 +127,7 @@ const normalizeFlags purell.NormalizationFlags = purell.FlagRemoveDefaultPort |
 // 5. Sort query parameters.
 // 6. Decode host IP into decimal numbers.
 // 7. Handle escape values.
+// 8. Decode Punycode domains into UTF8 representation.
 func Normalize(u *url.URL) (string, error) {
 	host, _, err := SplitHostPort(u)
 	if err != nil {
@@ -122,7 +137,13 @@ func Normalize(u *url.URL) (string, error) {
 		return "", err
 	}
 
-	u.Host = strings.ToLower(u.Host)
+	// Decode Punycode.
+	host, err = idna.ToUnicode(host)
+	if err != nil {
+		return "", err
+	}
+
+	u.Host = strings.ToLower(host)
 	u.Scheme = strings.ToLower(u.Scheme)
 
 	return purell.NormalizeURL(u, normalizeFlags), nil

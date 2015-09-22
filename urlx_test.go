@@ -59,6 +59,18 @@ func TestParse(t *testing.T) {
 		// Lowercase scheme and host by default. Let net/url normalize URL by default:
 		{in: "hTTp://subSUB.sub.EXAMPLE.COM/x//////y///foo.mp3?c=z&a=x&b=y#t=20", out: "http://subsub.sub.example.com/x//////y///foo.mp3?c=z&a=x&b=y#t=20"},
 
+		// IDNA Punycode domains.
+		// TODO: net/url escapes all the fields in String() method. Should we fix it?
+		{in: "http://www.žluťoučký-kůň.cz/úpěl-ďábelské-ódy", out: "http://www.%C5%BElu%C5%A5ou%C4%8Dk%C3%BD-k%C5%AF%C5%88.cz/%C3%BAp%C4%9Bl-%C4%8F%C3%A1belsk%C3%A9-%C3%B3dy"},
+		{in: "http://www.xn--luouk-k-z2a6lsyxjlexh.cz/úpěl-ďábelské-ódy", out: "http://www.xn--luouk-k-z2a6lsyxjlexh.cz/%C3%BAp%C4%9Bl-%C4%8F%C3%A1belsk%C3%A9-%C3%B3dy"},
+		{in: "http://żółć.pl/żółć.html", out: "http://%C5%BC%C3%B3%C5%82%C4%87.pl/%C5%BC%C3%B3%C5%82%C4%87.html"},
+		{in: "http://xn--kda4b0koi.pl/żółć.html", out: "http://xn--kda4b0koi.pl/%C5%BC%C3%B3%C5%82%C4%87.html"},
+
+		// IANA TLDs.
+		// TODO: net/url escapes all the fields in String() method. Should we fix it?
+		{in: "https://pressly.餐厅", out: "https://pressly.%E9%A4%90%E5%8E%85"},
+		{in: "https://pressly.组织机构", out: "https://pressly.%E7%BB%84%E7%BB%87%E6%9C%BA%E6%9E%84"},
+
 		// Some obviously wrong data:
 		{in: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==", err: true},
 		{in: "javascript:evilFunction()", err: true},
@@ -70,7 +82,7 @@ func TestParse(t *testing.T) {
 		url, err := urlx.Parse(tt.in)
 		if err != nil {
 			if !tt.err {
-				t.Errorf(`"%s": unexpected error \"%v\"`, tt.in, err)
+				t.Errorf(`"%s": unexpected error "%v"`, tt.in, err)
 			}
 			continue
 		}
@@ -114,6 +126,10 @@ func TestURLNormalize(t *testing.T) {
 
 		// README example:
 		{in: "localhost:80///x///y/z/../././index.html?b=y&a=x#t=20", out: "http://localhost/x/y/index.html?a=x&b=y#t=20"},
+
+		// Decode Punycode into UTF8.
+		{in: "http://www.xn--luouk-k-z2a6lsyxjlexh.cz/úpěl-ďábelské-ódy", out: "http://www.žluťoučký-kůň.cz/%C3%BAp%C4%9Bl-%C4%8F%C3%A1belsk%C3%A9-%C3%B3dy"},
+		{in: "http://xn--kda4b0koi.pl/żółć.html", out: "http://żółć.pl/%C5%BC%C3%B3%C5%82%C4%87.html"},
 
 		// ..more robust test cases covered by Purell
 	}
