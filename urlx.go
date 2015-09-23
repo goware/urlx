@@ -129,7 +129,7 @@ const normalizeFlags purell.NormalizationFlags = purell.FlagRemoveDefaultPort |
 // 7. Handle escape values.
 // 8. Decode Punycode domains into UTF8 representation.
 func Normalize(u *url.URL) (string, error) {
-	host, _, err := SplitHostPort(u)
+	host, port, err := SplitHostPort(u)
 	if err != nil {
 		return "", err
 	}
@@ -144,6 +144,9 @@ func Normalize(u *url.URL) (string, error) {
 	}
 
 	u.Host = strings.ToLower(host)
+	if port != "" {
+		u.Host += ":" + port
+	}
 	u.Scheme = strings.ToLower(u.Scheme)
 
 	return purell.NormalizeURL(u, normalizeFlags), nil

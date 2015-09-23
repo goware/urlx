@@ -21,6 +21,8 @@ func TestParse(t *testing.T) {
 		// Test schemes:
 		{in: "http://example.com", out: "http://example.com"},
 		{in: "HTTP://x.example.com", out: "http://x.example.com"},
+		{in: "http://localhost", out: "http://localhost"},
+		{in: "http://user.local", out: "http://user.local"},
 		{in: "https://example.com", out: "https://example.com"},
 		{in: "HTTPS://example.com", out: "https://example.com"},
 		{in: "ssh://example.com:22", out: "ssh://example.com:22"},
@@ -30,11 +32,16 @@ func TestParse(t *testing.T) {
 		{in: "//example.com", out: "http://example.com"},
 
 		// Empty scheme defaults to http:
-		{in: "http://localhost", out: "http://localhost"},
 		{in: "localhost", out: "http://localhost"},
 		{in: "LOCALHOST", out: "http://localhost"},
+		{in: "localhost:80", out: "http://localhost:80"},
+		{in: "localhost:8080", out: "http://localhost:8080"},
 		{in: "user.local", out: "http://user.local"},
+		{in: "user.local:80", out: "http://user.local:80"},
+		{in: "user.local:8080", out: "http://user.local:8080"},
 		{in: "127.0.0.1", out: "http://127.0.0.1"},
+		{in: "127.0.0.1:80", out: "http://127.0.0.1:80"},
+		{in: "127.0.0.1:8080", out: "http://127.0.0.1:8080"},
 		{in: "[2001:db8:a0b:12f0::1]", out: "http://[2001:db8:a0b:12f0::1]"},
 		{in: "[2001:db8:a0b:12f0::80]", out: "http://[2001:db8:a0b:12f0::80]"},
 
@@ -111,6 +118,26 @@ func TestURLNormalize(t *testing.T) {
 		{in: "localhost:80", out: "http://localhost"},
 		{in: "127.0.0.1:80", out: "http://127.0.0.1"},
 		{in: "[2001:db8:a0b:12f0::1]:80", out: "http://[2001:db8:a0b:12f0::1]"},
+
+		// Empty scheme defaults to http:
+		{in: "localhost", out: "http://localhost"},
+		{in: "LOCALHOST", out: "http://localhost"},
+		{in: "localhost:80", out: "http://localhost"},
+		{in: "localhost:8080", out: "http://localhost:8080"},
+		{in: "user.local", out: "http://user.local"},
+		{in: "user.local:80", out: "http://user.local"},
+		{in: "user.local:8080", out: "http://user.local:8080"},
+		{in: "127.0.0.1", out: "http://127.0.0.1"},
+		{in: "127.0.0.1:80", out: "http://127.0.0.1"},
+		{in: "127.0.0.1:8080", out: "http://127.0.0.1:8080"},
+		{in: "[2001:db8:a0b:12f0::1]", out: "http://[2001:db8:a0b:12f0::1]"},
+		{in: "[2001:db8:a0b:12f0::1]:80", out: "http://[2001:db8:a0b:12f0::1]"},
+		{in: "[2001:db8:a0b:12f0::1]:8080", out: "http://[2001:db8:a0b:12f0::1]:8080"},
+		{in: "[2001:db8:a0b:12f0::80]", out: "http://[2001:db8:a0b:12f0::80]"},
+		{in: "[2001:db8:a0b:12f0::80]:80", out: "http://[2001:db8:a0b:12f0::80]"},
+		{in: "[2001:db8:a0b:12f0::80]:8080", out: "http://[2001:db8:a0b:12f0::80]:8080"},
+		{in: "http://localhost:8080", out: "http://localhost:8080"},
+		{in: "http://x.example.io:8080", out: "http://x.example.io:8080"},
 
 		// Remove duplicate slashes.
 		{in: "http://example.com///x//////y///index.html", out: "http://example.com/x/y/index.html"},
