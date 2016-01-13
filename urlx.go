@@ -9,9 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/net/idna"
-
 	"github.com/PuerkitoBio/purell"
+	"golang.org/x/net/idna"
 )
 
 // Parse parses raw URL string into the net/url URL struct.
@@ -185,6 +184,13 @@ func ResolveString(rawURL string) (*net.IPAddr, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return Resolve(u)
+}
+
+func URIEncode(uri string) (string, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+	return u.String(), nil
 }

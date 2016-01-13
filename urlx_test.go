@@ -205,5 +205,28 @@ func TestURLResolve(t *testing.T) {
 			t.Errorf(`%v: got "%v", want "%v"`, tt.in, ip, tt.out)
 		}
 	}
+}
 
+func TestURIEncode(t *testing.T) {
+	tests := []struct {
+		in  string
+		out string
+		err bool
+	}{
+		{in: "http://site.com/image/Look At Me.jpg", out: "http://site.com/image/Look%20At%20Me.jpg"},
+	}
+
+	for _, tt := range tests {
+		u, err := urlx.URIEncode(tt.in)
+		if !tt.err && err != nil {
+			t.Errorf(`%v: unexpected error \"%v\"`, tt.in, err)
+			continue
+		}
+		if tt.err && err == nil {
+			t.Errorf(`%v: expected error`, tt.in)
+		}
+		if tt.out != "" && tt.out != fmt.Sprint(u) {
+			t.Errorf(`%v: got "%v", want "%v"`, tt.in, u, tt.out)
+		}
+	}
 }
