@@ -61,7 +61,7 @@ var (
 
 func checkHost(host string) error {
 	if host == "" {
-		return &url.Error{"host", host, errors.New("empty host")}
+		return &url.Error{Op: "host", URL: host, Err: errors.New("empty host")}
 	}
 
 	host = strings.ToLower(host)
@@ -80,7 +80,7 @@ func checkHost(host string) error {
 		return nil
 	}
 
-	return &url.Error{"host", host, errors.New("invalid host")}
+	return &url.Error{Op: "host", URL: host, Err: errors.New("invalid host")}
 }
 
 // SplitHostPort splits network address of the form "host:port" into
@@ -88,7 +88,7 @@ func checkHost(host string) error {
 // from [IPv6] host and it accepts net/url.URL struct instead of a string.
 func SplitHostPort(u *url.URL) (host, port string, err error) {
 	if u == nil {
-		return "", "", &url.Error{"host", host, errors.New("empty url")}
+		return "", "", &url.Error{Op: "host", URL: host, Err: errors.New("empty url")}
 	}
 	host = u.Host
 
@@ -104,7 +104,7 @@ func SplitHostPort(u *url.URL) (host, port string, err error) {
 	// Port is optional. But if it's set, is it a number?
 	if port != "" {
 		if _, err := strconv.Atoi(port); err != nil {
-			return "", "", &url.Error{"port", host, err}
+			return "", "", &url.Error{Op: "port", URL: host, Err: err}
 		}
 	}
 
