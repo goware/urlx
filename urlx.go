@@ -13,23 +13,44 @@ import (
 	"golang.org/x/net/idna"
 )
 
-// Parse parses raw URL string into the net/url URL struct.
-// It uses the url.Parse() internally, but it slightly changes
-// its behavior:
-// 1. It forces the default scheme and port.
-// 2. It favors absolute paths over relative ones, thus "example.com"
-//    is parsed into url.Host instead of url.Path.
-// 4. It lowercases the Host (not only the Scheme).
-func Parse(rawURL string) (*url.URL, error) {
+type Transformer func(rawURL string) string
+
+func DefaultToHTTP(rawURL string) string {
+	return defaultToScheme(rawURL, "http")
+}
+
+func DefaultToHTTPS(rawURL string) string {
+	return defaultToScheme(rawURL, "https")
+}
+
+func defaultToScheme(rawURL, defaultScheme string) string {
 	// Force default http scheme, so net/url.Parse() doesn't
 	// put both host and path into the (relative) path.
 	if strings.Index(rawURL, "//") == 0 {
 		// Leading double slashes (any scheme). Force http.
-		rawURL = "http:" + rawURL
+		rawURL = defaultScheme + ":" + rawURL
 	}
 	if strings.Index(rawURL, "://") == -1 {
 		// Missing scheme. Force http.
-		rawURL = "http://" + rawURL
+		rawURL = defaultScheme + "://" + rawURL
+	}
+	return rawURL
+}
+
+// Parse parses raw URL string into the net/url URL struct.
+// It uses the url.Parse() internally, but it slightly changes
+// its behavior:
+// 1. It forces the default scheme and port to http
+// 2. It favors absolute paths over relative ones, thus "example.com"
+//    is parsed into url.Host instead of url.Path.
+// 4. It lowercases the Host (not only the Scheme).
+func Parse(rawURL string) (*url.URL, error) {
+	return ParseWithTransforms(rawURL, DefaultToHTTP)
+}
+
+func ParseWithTransforms(rawURL string, transformers ...Transformer) (*url.URL, error) {
+	for _, transformer := range transformers {
+		rawURL = transformer(rawURL)
 	}
 
 	// Use net/url.Parse() now.
