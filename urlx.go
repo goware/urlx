@@ -13,16 +13,6 @@ import (
 	"golang.org/x/net/idna"
 )
 
-type Transformer func(rawURL string) string
-
-func DefaultToHTTP(rawURL string) string {
-	return defaultToScheme(rawURL, "http")
-}
-
-func DefaultToHTTPS(rawURL string) string {
-	return defaultToScheme(rawURL, "https")
-}
-
 func defaultToScheme(rawURL, defaultScheme string) string {
 	// Force default http scheme, so net/url.Parse() doesn't
 	// put both host and path into the (relative) path.
@@ -45,13 +35,11 @@ func defaultToScheme(rawURL, defaultScheme string) string {
 //    is parsed into url.Host instead of url.Path.
 // 4. It lowercases the Host (not only the Scheme).
 func Parse(rawURL string) (*url.URL, error) {
-	return ParseWithTransforms(rawURL, DefaultToHTTP)
+	return ParseWithDefaultScheme(rawURL, "http")
 }
 
-func ParseWithTransforms(rawURL string, transformers ...Transformer) (*url.URL, error) {
-	for _, transformer := range transformers {
-		rawURL = transformer(rawURL)
-	}
+func ParseWithDefaultScheme(rawURL string, defaultScheme string) (*url.URL, error) {
+	rawURL = defaultToScheme(rawURL, defaultScheme)
 
 	// Use net/url.Parse() now.
 	u, err := url.Parse(rawURL)
