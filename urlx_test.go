@@ -103,7 +103,7 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestParseWithTransform(t *testing.T) {
+func TestParseWithDefaultScheme(t *testing.T) {
 	// Make sure that when you specify a default scheme of https, it applies
 	// to the result but only when the `in` does not have a scheme specified
 	tests := []struct {
@@ -184,7 +184,7 @@ func TestParseWithTransform(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		url, err := urlx.ParseWithTransforms(tt.in, urlx.DefaultToHTTPS)
+		url, err := urlx.ParseWithDefaultScheme(tt.in, "https")
 		if err != nil {
 			if !tt.err {
 				t.Errorf(`"%s": unexpected error "%v"`, tt.in, err)
