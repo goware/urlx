@@ -13,24 +13,33 @@ import (
 	"golang.org/x/net/idna"
 )
 
-// Parse parses raw URL string into the net/url URL struct.
-// It uses the url.Parse() internally, but it slightly changes
-// its behavior:
-// 1. It forces the default scheme and port.
-// 2. It favors absolute paths over relative ones, thus "example.com"
-//    is parsed into url.Host instead of url.Path.
-// 4. It lowercases the Host (not only the Scheme).
-func Parse(rawURL string) (*url.URL, error) {
+func defaultToScheme(rawURL, defaultScheme string) string {
 	// Force default http scheme, so net/url.Parse() doesn't
 	// put both host and path into the (relative) path.
 	if strings.Index(rawURL, "//") == 0 {
 		// Leading double slashes (any scheme). Force http.
-		rawURL = "http:" + rawURL
+		rawURL = defaultScheme + ":" + rawURL
 	}
 	if strings.Index(rawURL, "://") == -1 {
 		// Missing scheme. Force http.
-		rawURL = "http://" + rawURL
+		rawURL = defaultScheme + "://" + rawURL
 	}
+	return rawURL
+}
+
+// Parse parses raw URL string into the net/url URL struct.
+// It uses the url.Parse() internally, but it slightly changes
+// its behavior:
+// 1. It forces the default scheme and port to http
+// 2. It favors absolute paths over relative ones, thus "example.com"
+//    is parsed into url.Host instead of url.Path.
+// 4. It lowercases the Host (not only the Scheme).
+func Parse(rawURL string) (*url.URL, error) {
+	return ParseWithDefaultScheme(rawURL, "http")
+}
+
+func ParseWithDefaultScheme(rawURL string, defaultScheme string) (*url.URL, error) {
+	rawURL = defaultToScheme(rawURL, defaultScheme)
 
 	// Use net/url.Parse() now.
 	u, err := url.Parse(rawURL)
