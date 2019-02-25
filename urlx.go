@@ -20,7 +20,7 @@ func defaultToScheme(rawURL, defaultScheme string) string {
 		// Leading double slashes (any scheme). Force http.
 		rawURL = defaultScheme + ":" + rawURL
 	}
-	if strings.Index(rawURL, "://") == -1 {
+	if !strings.Contains(rawURL, "://") {
 		// Missing scheme. Force http.
 		rawURL = defaultScheme + "://" + rawURL
 	}
@@ -104,7 +104,7 @@ func SplitHostPort(u *url.URL) (host, port string, err error) {
 	// Find last colon.
 	if i := strings.LastIndex(host, ":"); i != -1 {
 		// If we're not inside [IPv6] brackets, split host:port.
-		if len(host) > i && strings.Index(host[i:], "]") == -1 {
+		if len(host) > i && !strings.Contains(host[i:], "]") {
 			port = host[i+1:]
 			host = host[:i]
 		}
