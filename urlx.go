@@ -33,7 +33,7 @@ func defaultToScheme(rawURL, defaultScheme string) string {
 // 1. It forces the default scheme and port to http
 // 2. It favors absolute paths over relative ones, thus "example.com"
 //    is parsed into url.Host instead of url.Path.
-// 4. It lowercases the Host (not only the Scheme).
+// 3. It lowercases the Host (not only the Scheme).
 func Parse(rawURL string) (*url.URL, error) {
 	return ParseWithDefaultScheme(rawURL, "http")
 }
