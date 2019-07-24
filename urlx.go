@@ -13,20 +13,6 @@ import (
 	"golang.org/x/net/idna"
 )
 
-func defaultToScheme(rawURL, defaultScheme string) string {
-	// Force default http scheme, so net/url.Parse() doesn't
-	// put both host and path into the (relative) path.
-	if strings.Index(rawURL, "//") == 0 {
-		// Leading double slashes (any scheme). Force http.
-		rawURL = defaultScheme + ":" + rawURL
-	}
-	if !strings.Contains(rawURL, "://") {
-		// Missing scheme. Force http.
-		rawURL = defaultScheme + "://" + rawURL
-	}
-	return rawURL
-}
-
 // Parse parses raw URL string into the net/url URL struct.
 // It uses the url.Parse() internally, but it slightly changes
 // its behavior:
@@ -38,8 +24,8 @@ func Parse(rawURL string) (*url.URL, error) {
 	return ParseWithDefaultScheme(rawURL, "http")
 }
 
-func ParseWithDefaultScheme(rawURL string, defaultScheme string) (*url.URL, error) {
-	rawURL = defaultToScheme(rawURL, defaultScheme)
+func ParseWithDefaultScheme(rawURL string, scheme string) (*url.URL, error) {
+	rawURL = defaultScheme(rawURL, scheme)
 
 	// Use net/url.Parse() now.
 	u, err := url.Parse(rawURL)
@@ -59,6 +45,20 @@ func ParseWithDefaultScheme(rawURL string, defaultScheme string) (*url.URL, erro
 	u.Scheme = strings.ToLower(u.Scheme)
 
 	return u, nil
+}
+
+func defaultScheme(rawURL, scheme string) string {
+	// Force default http scheme, so net/url.Parse() doesn't
+	// put both host and path into the (relative) path.
+	if strings.Index(rawURL, "//") == 0 {
+		// Leading double slashes (any scheme). Force http.
+		rawURL = scheme + ":" + rawURL
+	}
+	if !strings.Contains(rawURL, "://") {
+		// Missing scheme. Force http.
+		rawURL = scheme + "://" + rawURL
+	}
+	return rawURL
 }
 
 var (
@@ -101,19 +101,27 @@ func SplitHostPort(u *url.URL) (host, port string, err error) {
 	host = u.Host
 
 	// Find last colon.
-	if i := strings.LastIndex(host, ":"); i != -1 {
-		// If we're not inside [IPv6] brackets, split host:port.
-		if len(host) > i && !strings.Contains(host[i:], "]") {
-			port = host[i+1:]
-			host = host[:i]
-		}
+	i := strings.LastIndex(host, ":")
+	if i == -1 {
+		// No port found.
+		return host, "", nil
 	}
 
-	// Port is optional. But if it's set, is it a number?
-	if port != "" {
-		if _, err := strconv.Atoi(port); err != nil {
-			return "", "", &url.Error{Op: "port", URL: host, Err: err}
-		}
+	// Return if the last colon is inside [IPv6] brackets.
+	if strings.HasPrefix(host, "[") && strings.Contains(host[i:], "]") {
+		// No port found.
+		return host, "", nil
+	}
+
+	if i == len(host)-1 {
+		return "", "", &url.Error{Op: "port", URL: u.String(), Err: errors.New("empty port")}
+	}
+
+	port = host[i+1:]
+	host = host[:i]
+
+	if _, err := strconv.Atoi(port); err != nil {
+		return "", "", &url.Error{Op: "port", URL: u.String(), Err: err}
 	}
 
 	return host, port, nil
