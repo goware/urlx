@@ -62,8 +62,7 @@ func ParseWithDefaultScheme(rawURL string, defaultScheme string) (*url.URL, erro
 }
 
 var (
-	// RFC 1035.
-	domainRegexp = regexp.MustCompile(`^([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]$`)
+	domainRegexp = regexp.MustCompile(`^([a-zA-Z0-9-]{1,63}\.)*([a-zA-Z0-9-]{1,63})$`)
 	ipv4Regexp   = regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	ipv6Regexp   = regexp.MustCompile(`^\[[a-fA-F0-9:]+\]$`)
 )
@@ -74,7 +73,7 @@ func checkHost(host string) error {
 	}
 
 	host = strings.ToLower(host)
-	if domainRegexp.MatchString(host) || host == "localhost" {
+	if domainRegexp.MatchString(host) {
 		return nil
 	}
 
