@@ -62,6 +62,7 @@ func TestParse(t *testing.T) {
 		{in: "1.example.com", out: "http://1.example.com"},
 		{in: "1.example.io", out: "http://1.example.io"},
 		{in: "subsub.sub.example.com", out: "http://subsub.sub.example.com"},
+		{in: "subdomain_test.example.com", out: "http://subdomain_test.example.com"},
 
 		// Test userinfo:
 		{in: "user@example.com", out: "http://user@example.com"},
@@ -97,13 +98,6 @@ func TestParse(t *testing.T) {
 		{in: "http:///www.google.com", err: true},
 		{in: "javascript:void(0)", err: true},
 		{in: "<script>", err: true},
-	}
-
-	tests = []struct {
-		in  string
-		out string
-		err bool
-	}{
 		{in: "http:/www.google.com", err: true},
 	}
 
