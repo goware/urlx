@@ -73,6 +73,12 @@ func checkHost(host string) error {
 	}
 
 	host = strings.ToLower(host)
+	if ipv4Regexp.MatchString(host) {
+		if !ipv4Octets(host) {
+			return &url.Error{Op: "host", URL: host, Err: errors.New("invalid host")}
+		}
+		return nil
+	}
 	if domainRegexp.MatchString(host) {
 		return nil
 	}
@@ -89,6 +95,16 @@ func checkHost(host string) error {
 	}
 
 	return &url.Error{Op: "host", URL: host, Err: errors.New("invalid host")}
+}
+
+func ipv4Octets(host string) bool {
+	for _, part := range strings.Split(host, ".") {
+		n, err := strconv.Atoi(part)
+		if err != nil || n > 255 {
+			return false
+		}
+	}
+	return true
 }
 
 // SplitHostPort splits network address of the form "host:port" into
