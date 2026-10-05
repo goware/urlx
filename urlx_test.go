@@ -50,6 +50,13 @@ func TestParse(t *testing.T) {
 		{in: "[2001:db8:a0b:12f0::1]", out: "http://[2001:db8:a0b:12f0::1]"},
 		{in: "[2001:db8:a0b:12f0::80]", out: "http://[2001:db8:a0b:12f0::80]"},
 
+		// Empty scheme defaults to http even when "://" appears later in the URL:
+		{in: "example.com/login?next=https://other.com/", out: "http://example.com/login?next=https://other.com/"},
+		{in: "example.com?u=http://a.example.com", out: "http://example.com?u=http://a.example.com"},
+		{in: "example.com:8080/redirect/http://a.example.com", out: "http://example.com:8080/redirect/http://a.example.com"},
+		{in: "example.com#ref=ftp://a.example.com", out: "http://example.com#ref=ftp://a.example.com"},
+		{in: "user:passwd@example.com/?u=http://a", out: "http://user:passwd@example.com/?u=http://a"},
+
 		// Keep the port even on matching scheme:
 		{in: "http://localhost:80", out: "http://localhost:80"},
 		{in: "http://localhost:8080", out: "http://localhost:8080"},
