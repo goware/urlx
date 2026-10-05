@@ -54,8 +54,10 @@ func defaultScheme(rawURL, scheme string) string {
 		// Leading double slashes (any scheme). Force http.
 		rawURL = scheme + ":" + rawURL
 	}
-	if !strings.Contains(rawURL, "://") {
-		// Missing scheme. Force http.
+	if i := strings.Index(rawURL, "://"); i < 0 || strings.ContainsAny(rawURL[:i], "/?#") {
+		// Missing scheme. Force http. A "://" that only shows up after the
+		// first "/", "?" or "#" belongs to the path, query or fragment
+		// (e.g. "example.com/?next=https://other.com"), not to a scheme.
 		rawURL = scheme + "://" + rawURL
 	}
 	return rawURL
