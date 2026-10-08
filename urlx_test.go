@@ -2,6 +2,8 @@ package urlx_test
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -243,6 +245,119 @@ func TestURLResolve(t *testing.T) {
 		if tt.out != "" && tt.out != fmt.Sprint(ip) {
 			t.Errorf(`%v: got "%v", want "%v"`, tt.in, ip, tt.out)
 		}
+	}
+}
+
+func TestURLResolveIPAddresses(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		ip   string
+	}{
+		{name: "ipv4", in: "http://127.0.0.1", ip: "127.0.0.1"},
+		{name: "ipv4_port", in: "https://127.0.0.1:443/path?q=1", ip: "127.0.0.1"},
+		{name: "ipv6_loopback", in: "http://[::1]/path", ip: "::1"},
+		{name: "ipv6_loopback_port", in: "https://[::1]:8443/path", ip: "::1"},
+		{name: "ipv6_expanded", in: "http://[2001:0DB8:0000:0000:0000:0000:0000:0001]", ip: "2001:db8::1"},
+		{name: "ipv6_compressed_port", in: "http://[2001:db8::1]:8080", ip: "2001:db8::1"},
+		{name: "ipv6_unspecified", in: "http://[::]", ip: "::"},
+		{name: "ipv6_default_scheme", in: "[2001:db8::2]:8080/path", ip: "2001:db8::2"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u, err := urlx.Parse(tt.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original := *u
+			t.Run("Resolve", func(t *testing.T) {
+				ip, err := urlx.Resolve(u)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !ip.IP.Equal(net.ParseIP(tt.ip)) || ip.Zone != "" {
+					t.Errorf("got %v, want %s", ip, tt.ip)
+				}
+				if *u != original {
+					t.Errorf("URL changed: got %v, want %v", *u, original)
+				}
+			})
+			t.Run("ResolveString", func(t *testing.T) {
+				ip, err := urlx.ResolveString(tt.in)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !ip.IP.Equal(net.ParseIP(tt.ip)) || ip.Zone != "" {
+					t.Errorf("got %v, want %s", ip, tt.ip)
+				}
+			})
+		})
+	}
+}
+
+func TestURLResolveScopedAndMappedIPAddresses(t *testing.T) {
+	tests := []struct {
+		in   string
+		ip   string
+		zone string
+	}{
+		{in: "http://[fe80::1%25eth0]/", ip: "fe80::1", zone: "eth0"},
+		{in: "http://[fe80::1%25eth0]:8080/", ip: "fe80::1", zone: "eth0"},
+		{in: "http://[::ffff:192.0.2.1]/", ip: "192.0.2.1"},
+		{in: "http://[::ffff:192.0.2.1]:8080/", ip: "192.0.2.1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			u, err := url.Parse(tt.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original := *u
+			ip, err := urlx.Resolve(u)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !ip.IP.Equal(net.ParseIP(tt.ip)) || ip.Zone != tt.zone {
+				t.Errorf("got %v, want IP %s and zone %q", ip, tt.ip, tt.zone)
+			}
+			if *u != original {
+				t.Errorf("URL changed: got %v, want %v", *u, original)
+			}
+		})
+	}
+}
+
+func TestURLResolveErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		u    *url.URL
+		op   string
+	}{
+		{name: "nil_url", op: "host"},
+		{name: "empty_ipv4_port", u: &url.URL{Host: "127.0.0.1:"}, op: "port"},
+		{name: "invalid_ipv4_port", u: &url.URL{Host: "127.0.0.1:abc"}, op: "port"},
+		{name: "empty_ipv6_port", u: &url.URL{Host: "[::1]:"}, op: "port"},
+		{name: "invalid_ipv6_port", u: &url.URL{Host: "[::1]:abc"}, op: "port"},
+		{name: "empty_brackets", u: &url.URL{Host: "[]"}},
+		{name: "bracketed_hostname", u: &url.URL{Host: "[localhost]"}},
+		{name: "bracketed_ipv4", u: &url.URL{Host: "[127.0.0.1]"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ip, err := urlx.Resolve(tt.u)
+			if ip != nil || err == nil {
+				t.Fatalf("got (%v, %v), want nil IP and an error", ip, err)
+			}
+			if tt.op != "" {
+				urlErr, ok := err.(*url.Error)
+				if !ok || urlErr.Op != tt.op {
+					t.Errorf("got %v, want URL error with operation %q", err, tt.op)
+				}
+			}
+		})
 	}
 }
 

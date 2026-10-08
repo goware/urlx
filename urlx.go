@@ -184,6 +184,9 @@ func Resolve(u *url.URL) (*net.IPAddr, error) {
 	if err != nil {
 		return nil, err
 	}
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") && strings.Contains(host, ":") {
+		host = host[1 : len(host)-1]
+	}
 
 	addr, err := net.ResolveIPAddr("ip", host)
 	if err != nil {
